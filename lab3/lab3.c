@@ -1,0 +1,72 @@
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define HISTORY_SIZE 5
+
+static char *my_strdup(const char *s) {
+  size_t n = strlen(s) + 1;
+  char *p = malloc(n);
+  if (p)
+    memcpy(p, s, n);
+  return p;
+}
+
+static void trim_nl(char *s) {
+  if (!s)
+    return;
+  size_t n = strlen(s);
+  if (n && s[n - 1] == '\n')
+    s[n - 1] = '\0';
+}
+
+static void free_history(char *h[HISTORY_SIZE]) {
+  for (int i = 0; i < HISTORY_SIZE; ++i) {
+    free(h[i]);
+    h[i] = NULL;
+  }
+}
+
+static void push_history(char *h[HISTORY_SIZE], int *head, int *count,
+                         const char *line) {
+  free(h[*head]);
+  h[*head] = my_strdup(line);
+  if (!h[*head]) {
+    perror("malloc");
+    free_history(h);
+    exit(1);
+  }
+  *head = (*head + 1) % HISTORY_SIZE;
+  if (*count < HISTORY_SIZE)
+    (*count)++;
+}
+
+static void print_history(char *h[HISTORY_SIZE], int head, int count) {
+  int start = (head - count + HISTORY_SIZE) % HISTORY_SIZE; // oldest
+  for (int i = 0; i < count; ++i) {
+    int idx = (start + i) % HISTORY_SIZE;
+    printf("%s\n", h[idx]);
+  }
+}
+
+int main(void) {
+  char *history[HISTORY_SIZE] = {0};
+  int head = 0, count = 0;
+
+  char *line = NULL;
+  size_t cap = 0;
+
+  while (printf("Enter input: "), fflush(stdout),
+         getline(&line, &cap, stdin) != -1) {
+    trim_nl(line);
+    push_history(history, &head, &count, line);
+    if (strcmp(line, "print") == 0) {
+      print_history(history, head, count);
+    }
+  }
+
+  free(line);
+  free_history(history);
+  return 0;
+}
